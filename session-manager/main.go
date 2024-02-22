@@ -20,6 +20,7 @@ package main
 import (
 	"errors"
 	"log"
+	"time"
 )
 
 // SessionManager keeps track of all sessions from creation, updating
@@ -30,7 +31,8 @@ type SessionManager struct {
 
 // Session stores the session's data
 type Session struct {
-	Data map[string]interface{}
+	Data         map[string]interface{}
+	LastModified time.Time
 }
 
 // NewSessionManager creates a new sessionManager
@@ -38,6 +40,18 @@ func NewSessionManager() *SessionManager {
 	m := &SessionManager{
 		sessions: make(map[string]Session),
 	}
+
+	go func(m *SessionManager) {
+		for {
+			now := time.Now()
+			for sid, session := range m.sessions {
+				if session.LastModified.Add(5 * time.Second).Before(now) {
+					delete(m.sessions, sid)
+				}
+			}
+			time.Sleep(1 * time.Second)
+		}
+	}(m)
 
 	return m
 }
@@ -50,7 +64,8 @@ func (m *SessionManager) CreateSession() (string, error) {
 	}
 
 	m.sessions[sessionID] = Session{
-		Data: make(map[string]interface{}),
+		Data:         make(map[string]interface{}),
+		LastModified: time.Now(),
 	}
 
 	return sessionID, nil
@@ -79,7 +94,8 @@ func (m *SessionManager) UpdateSessionData(sessionID string, data map[string]int
 
 	// Hint: you should renew expiry of the session here
 	m.sessions[sessionID] = Session{
-		Data: data,
+		Data:         data,
+		LastModified: time.Now(),
 	}
 
 	return nil
